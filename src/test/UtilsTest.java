@@ -3,8 +3,6 @@ package test;
 import main.utils.HTTPUtils;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 
 public class UtilsTest {
@@ -15,11 +13,11 @@ public class UtilsTest {
     }
 
     @Test
-    public void lala(){
+    public void distributionTest() {
         Random rnd = new Random();
 
         long sum = 0;
-        for(int i = 0; i< 1000 ; i++){
+        for (int i = 0; i < 1000; i++) {
             sum += getNormallyDistributedEventsCount(rnd);
         }
 

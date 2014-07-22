@@ -16,11 +16,11 @@ public class HTTPUtils {
 
     private static final String TRACK_METHOD = "server.track";
 
-    public static String makeURL(String host, String deployToken, int userNumber){
-        return generateApiRequestURL(host, generateUrlParams(deployToken, userNumber)) ;
+    public static String makeURL(String host, String deployToken, int userNumber) {
+        return generateApiRequestURL(host, generateUrlParams(deployToken, userNumber));
     }
 
-    private static Map<String, String> generateUrlParams(String token, int userNumber){
+    private static Map<String, String> generateUrlParams(String token, int userNumber) {
         Map<String, String> deviceParams = DeviceUtils.generateDeviceParams(userNumber);
         deviceParams.put("method", TRACK_METHOD);
         deviceParams.put("timestamp", Long.toString(System.currentTimeMillis()));
@@ -57,6 +57,7 @@ public class HTTPUtils {
     public static SampleResult sendApiRequest(String apiRequestURL, byte[] batch) {
         SampleResult sampleResult = new SampleResult();
         sampleResult.setRequestHeaders(apiRequestURL);
+        sampleResult.sampleStart();
 
         HttpURLConnection connection = null;
         try {
@@ -124,11 +125,10 @@ public class HTTPUtils {
             sampleResult.setDataType(SampleResult.TEXT);
             sampleResult.setResponseCode("500");
         } finally {
-            if(connection != null){
+            if (connection != null) {
                 connection.disconnect();
             }
         }
-
 
         return sampleResult;
     }

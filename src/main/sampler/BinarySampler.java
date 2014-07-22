@@ -8,7 +8,9 @@ import org.apache.jmeter.protocol.java.sampler.AbstractJavaSamplerClient;
 import org.apache.jmeter.protocol.java.sampler.JavaSamplerContext;
 import org.apache.jmeter.samplers.SampleResult;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.Iterator;
 
 public class BinarySampler extends AbstractJavaSamplerClient implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -23,19 +25,49 @@ public class BinarySampler extends AbstractJavaSamplerClient implements Serializ
         Arguments defaultParameters = new Arguments();
         defaultParameters.addArgument("host", "stage.pixapi.net");
         defaultParameters.addArgument("deployToken", "8f3d861a-4064-46db-afa0-74c36938bf57");
+        defaultParameters.addArgument("eventsFilePath", "/Users/pronvis/works/jmeter/timelines/timeline.txt");
+        defaultParameters.addArgument("userNumberAddiction", "0");
+        defaultParameters.addArgument("threadId", "${__threadNum}");
         return defaultParameters;
     }
 
     @Override
     public SampleResult runTest(JavaSamplerContext context) {
         // pull parameters
-        int userNumber = Integer.parseInt(context.getParameter("threadId")) - 1;
+        int threadId = 0;
+        try {
+            threadId = Integer.parseInt(context.getParameter("threadId"));
+        } catch (NumberFormatException nfe) {
+            SampleResult sampleResult = new SampleResult();
+            sampleResult.setSuccessful(false);
+            sampleResult.setResponseCode("999");
+            Iterator<String> iterator = context.getParameterNamesIterator();
+            StringBuilder stringBuilder = new StringBuilder();
+            while (iterator.hasNext()) {
+                stringBuilder.append(iterator.next()).append(" ");
+            }
+            sampleResult.setResponseMessage("NumberFormatException! " + nfe.toString() + "\n" + "Have 'threadId' parameter = " + context.containsParameter("threadId") + "\n" + "All parameters = " + stringBuilder.toString());
+
+            return sampleResult;
+        }
+        int userNumber = threadId - 1 + context.getIntParameter("userNumberAddiction");
         String deployToken = context.getParameter("deployToken");
         String host = context.getParameter("host");
+        String eventsFilePath = context.getParameter("eventsFilePath");
 
         String apiRequestURL = HTTPUtils.makeURL(host, deployToken, userNumber);
+        String batchStr;
+        try {
+            batchStr = BatchGenerator.generateRandomBatch(userNumber, eventsFilePath);
+        } catch (IOException ioe) {
+            SampleResult sampleResult = new SampleResult();
+            sampleResult.setSuccessful(false);
+            sampleResult.setResponseCode("999");
+            sampleResult.setResponseMessage("IOException! " + ioe.toString());
 
-        String batchStr = BatchGenerator.generateRandomBatch(userNumber);
+            return sampleResult;
+        }
+
         byte[] batch = SerializationUtil.serializeStringGzip(batchStr);
 
         return HTTPUtils.sendApiRequest(apiRequestURL, batch);
