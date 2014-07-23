@@ -3,6 +3,10 @@ package test;
 import main.utils.HTTPUtils;
 import org.junit.Test;
 
+import java.io.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 public class UtilsTest {
@@ -16,15 +20,77 @@ public class UtilsTest {
     public void distributionTest() {
         Random rnd = new Random();
 
+        int eventsCount = 25000;
         long sum = 0;
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < eventsCount; i++) {
             sum += getNormallyDistributedEventsCount(rnd);
         }
 
-        System.out.println(sum / 1000.);
+        System.out.println(sum / (double) eventsCount);
     }
 
     private static long getNormallyDistributedEventsCount(Random rnd) {
-        return Math.round(Math.abs(rnd.nextGaussian() * 3.5 + 7.5));
+        return Math.round(Math.abs(rnd.nextGaussian() * 3.5 + 7.5)) + 1;
+    }
+
+    @Test
+    public void getRandomLineNumbers() {
+        Random rnd = new Random();
+        int eventsInFile = 20;
+
+
+        for (int j = 0; j < 40; j++) {
+
+            int eventsInBatch = (int) getNormallyDistributedEventsCount(rnd);
+
+            ArrayList<Integer> lineNumbersForBatch = new ArrayList<Integer>(eventsInBatch);
+            for (int i = 0; i < eventsInBatch; i++) {
+                int nextInt = rnd.nextInt(eventsInFile);
+                if (!lineNumbersForBatch.contains(nextInt)) {
+                    lineNumbersForBatch.add(nextInt);
+                } else {
+                    i--;
+                }
+            }
+            System.out.println(lineNumbersForBatch.size());
+        }
+    }
+
+    @Test
+    public void saveAndLoadHashMap() throws IOException, ClassNotFoundException {
+        HashMap<Integer, Integer> fileObj = new HashMap<Integer, Integer>();
+
+        fileObj.put(0, 25);
+        fileObj.put(1, 2);
+        fileObj.put(2, 5);
+        fileObj.put(3, 20);
+        fileObj.put(4, 1);
+        {
+            File file = new File("temp");
+            FileOutputStream f = new FileOutputStream(file);
+            ObjectOutputStream s = new ObjectOutputStream(f);
+            s.writeObject(fileObj);
+            s.close();
+        }
+
+
+        File file = new File("temp");
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+
+        FileInputStream f = new FileInputStream(file);
+        ObjectInputStream s = new ObjectInputStream(f);
+        Object readedObject = s.readObject();
+        s.close();
+        if (readedObject == null) {
+            readedObject = new HashMap<Integer, Integer>();
+        }
+        Map<Integer, Integer> lastBatchIdsMap = (HashMap<Integer, Integer>) readedObject;
+        lastBatchIdsMap.put(lastBatchIdsMap.size(), 111);
+
+        for (Map.Entry entry : lastBatchIdsMap.entrySet()) {
+            System.out.println(entry.getKey() + " " + entry.getValue());
+        }
     }
 }

@@ -7,30 +7,34 @@ import com.google.gson.JsonPrimitive;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 
 public class BatchGenerator {
     private static double eventsCountPerBatchDeviance = 3.5;
     private static double meanEventsCountPerBatch = 7.5;
 
-    public static String generateRandomBatch(int userNumber, String eventsFilePath) throws IOException {
-        int batchId = 5;//getUserLastBatchId(userNumber);//todo: fix, comment for compiling only
+    private static final String TIMESTAMP = "timestamp";
+    private static final String SERVER_TIMESTAMP = "serverTimestamp";
+
+    private static JsonParser jsonParser = new JsonParser();
+
+    public static String generateRandomBatch(int userBatchId, String eventsFilePath) throws IOException {
         Random rnd = new Random();
 
         JsonObject batchJson = new JsonObject();
-        batchJson.add("batchId", new JsonPrimitive(batchId));
+        batchJson.add("batchId", new JsonPrimitive(userBatchId));
 
         JsonArray jsonEvents = new JsonArray();
         int eventsInBatch = (int) getNormallyDistributedEventsCount(rnd);
-        if (batchId == 0) {
+        if (userBatchId == 0) {
             jsonEvents.add(generateInstallEvent());
         }
 
         File file = new File(eventsFilePath);
-        if (file.canRead()) {
+        if (file.exists() && file.canRead()) {
             int eventsInFile = getLinesNumberInFile(file);
             ArrayList<Integer> lineNumbersForBatch = new ArrayList<Integer>(eventsInBatch);
-            //todo: заполняю массив чиселками рандомными, чтобы потом считывать строки с этими номерами из файла
             for (int i = 0; i < eventsInBatch; i++) {
                 int nextInt = rnd.nextInt(eventsInFile);
                 if (!lineNumbersForBatch.contains(nextInt)) {
@@ -40,7 +44,7 @@ public class BatchGenerator {
                 }
             }
 
-            //todo: формирую массив джейсонов из текстового файла
+            Collections.sort(lineNumbersForBatch);
             ArrayList<JsonObject> eventsFromFile = jsonEventsForLineNumbers(file, lineNumbersForBatch);
             for (JsonObject event : eventsFromFile) {
                 jsonEvents.add(event);
@@ -49,14 +53,16 @@ public class BatchGenerator {
             batchJson.add("batch", jsonEvents);
             return batchJson.toString();
         } else {
-            return null;
+            throw new IOException("Cant find/read file with Events!");
         }
     }
 
     private static JsonObject generateInstallEvent() {
         JsonObject installBatch = new JsonObject();
         installBatch.add("$country", new JsonPrimitive("RU"));
-        installBatch.add("servertimestamp", new JsonPrimitive(System.currentTimeMillis()));
+        JsonPrimitive currentTimestamp = new JsonPrimitive(System.currentTimeMillis());
+        installBatch.add("servertimestamp", currentTimestamp);
+        installBatch.add(TIMESTAMP, currentTimestamp);
         installBatch.add("action", new JsonPrimitive("installBroadcast"));
 
         return installBatch;
@@ -82,15 +88,14 @@ public class BatchGenerator {
         BufferedReader br = new BufferedReader(new FileReader(file));
         String line;
         while ((line = br.readLine()) != null) {
-            if (lineNumberIndex == eventsCount) {
-                break;
-            }
-
             if (fileLineNumber == eventLineNumber) {
                 eventList.add(changeEventFromFile(line));
 
-                eventLineNumber = lineNumbersForBatch.get(lineNumberIndex);
                 lineNumberIndex++;
+                if (lineNumberIndex == lineNumbersForBatch.size()) {
+                    break;
+                }
+                eventLineNumber = lineNumbersForBatch.get(lineNumberIndex);
             }
             fileLineNumber++;
         }
@@ -101,10 +106,17 @@ public class BatchGenerator {
     }
 
     private static JsonObject changeEventFromFile(String jsonString) {
-        return new JsonParser().parse(jsonString).getAsJsonObject(); //todo: temporarily!!! dont create Gson() every time!!!
+        JsonObject jsonEvent = jsonParser.parse(jsonString).getAsJsonObject();
+        jsonEvent.remove(TIMESTAMP);
+        jsonEvent.remove(SERVER_TIMESTAMP);
+        jsonEvent.remove("__PIX__DEBUG__USER_BATCH_ID__");
+        jsonEvent.remove("__PIX__DEBUG__BATCH_ID__");
+
+        jsonEvent.add(TIMESTAMP, new JsonPrimitive(System.currentTimeMillis()));
+        return jsonEvent;
     }
 
     private static long getNormallyDistributedEventsCount(Random rnd) {
-        return Math.round(Math.abs(rnd.nextGaussian() * eventsCountPerBatchDeviance + meanEventsCountPerBatch));
+        return Math.round(Math.abs(rnd.nextGaussian() * eventsCountPerBatchDeviance + meanEventsCountPerBatch)) + 1;
     }
 }
