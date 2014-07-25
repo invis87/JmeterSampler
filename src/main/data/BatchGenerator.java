@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import org.apache.jmeter.util.JMeterUtils;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -17,9 +18,12 @@ public class BatchGenerator {
     private static final String TIMESTAMP = "timestamp";
     private static final String SERVER_TIMESTAMP = "serverTimestamp";
 
+    private static final String EVENT_NUMBER_PREFIX = "eventNumber";
+    private static final String EVENTS_COUNT_PROPERTY_NAME = "eventsCountProperty";
+
     private static JsonParser jsonParser = new JsonParser();
 
-    public static String generateRandomBatch(int userBatchId, String eventsFilePath) throws IOException {
+    public static String generateRandomBatch(int userBatchId) {
         Random rnd = new Random();
 
         JsonObject batchJson = new JsonObject();
@@ -31,30 +35,26 @@ public class BatchGenerator {
             jsonEvents.add(generateInstallEvent());
         }
 
-        File file = new File(eventsFilePath);
-        if (file.exists() && file.canRead()) {
-            int eventsInFile = getLinesNumberInFile(file);
-            ArrayList<Integer> lineNumbersForBatch = new ArrayList<Integer>(eventsInBatch);
-            for (int i = 0; i < eventsInBatch; i++) {
-                int nextInt = rnd.nextInt(eventsInFile);
-                if (!lineNumbersForBatch.contains(nextInt)) {
-                    lineNumbersForBatch.add(nextInt);
-                } else {
-                    i--;
-                }
-            }
+        int eventsInDBFile = Integer.parseInt(JMeterUtils.getProperty(EVENTS_COUNT_PROPERTY_NAME));
 
-            Collections.sort(lineNumbersForBatch);
-            ArrayList<JsonObject> eventsFromFile = jsonEventsForLineNumbers(file, lineNumbersForBatch);
-            for (JsonObject event : eventsFromFile) {
-                jsonEvents.add(event);
+        ArrayList<Integer> lineNumbersForBatch = new ArrayList<Integer>(eventsInBatch);
+        for (int i = 0; i < eventsInBatch; i++) {
+            int nextInt = rnd.nextInt(eventsInDBFile);
+            if (!lineNumbersForBatch.contains(nextInt)) {
+                lineNumbersForBatch.add(nextInt);
+            } else {
+                i--;
             }
-
-            batchJson.add("batch", jsonEvents);
-            return batchJson.toString();
-        } else {
-            throw new IOException("Cant find/read file with Events!");
         }
+
+        Collections.sort(lineNumbersForBatch);
+        ArrayList<JsonObject> eventsFromFile = jsonEventsForLineNumbersFromProperties(lineNumbersForBatch);
+        for (JsonObject event : eventsFromFile) {
+            jsonEvents.add(event);
+        }
+
+        batchJson.add("batch", jsonEvents);
+        return batchJson.toString();
     }
 
     private static JsonObject generateInstallEvent() {
@@ -77,7 +77,7 @@ public class BatchGenerator {
         return linesNumber;
     }
 
-    private static ArrayList<JsonObject> jsonEventsForLineNumbers(File file, ArrayList<Integer> lineNumbersForBatch) throws IOException {
+    private static ArrayList<JsonObject> jsonEventsForLineNumbersFromFile(File file, ArrayList<Integer> lineNumbersForBatch) throws IOException {
         int eventsCount = lineNumbersForBatch.size();
 
         int lineNumberIndex = 0;
@@ -101,6 +101,17 @@ public class BatchGenerator {
         }
 
         br.close();
+
+        return eventList;
+    }
+
+    private static ArrayList<JsonObject> jsonEventsForLineNumbersFromProperties(ArrayList<Integer> lineNumbersForBatch) {
+        int eventsCount = lineNumbersForBatch.size();
+        ArrayList<JsonObject> eventList = new ArrayList<JsonObject>(eventsCount);
+
+        for (int lineNumber : lineNumbersForBatch) {
+            eventList.add(changeEventFromFile(JMeterUtils.getProperty(EVENT_NUMBER_PREFIX + lineNumber)));
+        }
 
         return eventList;
     }

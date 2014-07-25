@@ -58,6 +58,16 @@ public class UtilsTest {
 
     @Test
     public void saveAndLoadHashMap() throws IOException, ClassNotFoundException {
+//        saveIntegerHashMap("temp");
+
+        HashMap<Integer, Integer> lastBatchIdsMap = loadIntegerHashMap("/Users/pronvis/works/jmeter/performance/result/batchIdsMap");
+
+        for (Map.Entry entry : lastBatchIdsMap.entrySet()) {
+            System.out.println(entry.getKey() + " " + entry.getValue());
+        }
+    }
+
+    private void saveIntegerHashMap(String filePath) throws IOException{
         HashMap<Integer, Integer> fileObj = new HashMap<Integer, Integer>();
 
         fileObj.put(0, 25);
@@ -65,32 +75,31 @@ public class UtilsTest {
         fileObj.put(2, 5);
         fileObj.put(3, 20);
         fileObj.put(4, 1);
-        {
-            File file = new File("temp");
-            FileOutputStream f = new FileOutputStream(file);
-            ObjectOutputStream s = new ObjectOutputStream(f);
-            s.writeObject(fileObj);
-            s.close();
-        }
 
+        File file = new File(filePath);
+        FileOutputStream f = new FileOutputStream(file);
+        ObjectOutputStream s = new ObjectOutputStream(f);
+        s.writeObject(fileObj);
+        s.close();
+    }
 
-        File file = new File("temp");
-        if (!file.exists()) {
-            file.createNewFile();
-        }
+    private HashMap<Integer, Integer> loadIntegerHashMap(String filePath) throws IOException{
+        File file = new File(filePath);
 
         FileInputStream f = new FileInputStream(file);
         ObjectInputStream s = new ObjectInputStream(f);
-        Object readedObject = s.readObject();
+        Object readedObject;
+        try{
+            readedObject = s.readObject();
+        } catch (ClassNotFoundException e){
+            readedObject = null;
+        }
         s.close();
+
         if (readedObject == null) {
             readedObject = new HashMap<Integer, Integer>();
         }
-        Map<Integer, Integer> lastBatchIdsMap = (HashMap<Integer, Integer>) readedObject;
-        lastBatchIdsMap.put(lastBatchIdsMap.size(), 111);
 
-        for (Map.Entry entry : lastBatchIdsMap.entrySet()) {
-            System.out.println(entry.getKey() + " " + entry.getValue());
-        }
+        return (HashMap<Integer, Integer>) readedObject;
     }
 }

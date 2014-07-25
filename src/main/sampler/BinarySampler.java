@@ -8,8 +8,8 @@ import org.apache.jmeter.protocol.java.sampler.AbstractJavaSamplerClient;
 import org.apache.jmeter.protocol.java.sampler.JavaSamplerContext;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.util.JMeterUtils;
+import org.apache.log.Logger;
 
-import java.io.IOException;
 import java.io.Serializable;
 
 public class BinarySampler extends AbstractJavaSamplerClient implements Serializable {
@@ -22,37 +22,31 @@ public class BinarySampler extends AbstractJavaSamplerClient implements Serializ
         Arguments defaultParameters = new Arguments();
         defaultParameters.addArgument("host", "${__P(host)}");
         defaultParameters.addArgument("deployToken", "${__P(token)}");
-        defaultParameters.addArgument("eventsFilePath", "${__P{eventsFilePath)}");
-        defaultParameters.addArgument("userNumberAddiction", "${__P(userNumberAddiction)}");
+        defaultParameters.addArgument("userNumberAddiction", "${__P(userAddiction)}");
         defaultParameters.addArgument("threadId", "${__threadNum}");
         return defaultParameters;
     }
 
     @Override
     public SampleResult runTest(JavaSamplerContext context) {
-        int userNumber = context.getIntParameter("threadId") - 1 + context.getIntParameter("userNumberAddiction");
+        Logger logger = getLogger();
+        int threadNumber = context.getIntParameter("threadId");
+        int userNumber = threadNumber - 1 + context.getIntParameter("userNumberAddiction");
         String deployToken = context.getParameter("deployToken");
         String host = context.getParameter("host");
-        String eventsFilePath = context.getParameter("eventsFilePath");
 
         String apiRequestURL = HTTPUtils.makeURL(host, deployToken, userNumber);
-        String batchStr;
-        try {
-            batchStr = BatchGenerator.generateRandomBatch(getUserBatchId(userNumber), eventsFilePath);
-        } catch (IOException ioe) {
-            SampleResult sampleResult = new SampleResult();
-            sampleResult.setSuccessful(false);
-            sampleResult.setResponseCode("999");
-            sampleResult.setResponseMessage("IOException! " + ioe.toString());
-
-            return sampleResult;
-        }
+        String batchStr = BatchGenerator.generateRandomBatch(getUserBatchId(userNumber));
 
         byte[] batch = SerializationUtil.serializeStringGzip(batchStr);
 
         SampleResult sampleResult = HTTPUtils.sendApiRequest(apiRequestURL, batch);
         if (sampleResult.isSuccessful()) {
             incUserBatchId(userNumber);
+        }
+
+        if(!sampleResult.isSuccessful()){
+            logger.error("Thread Number - " + threadNumber + "\nResponse message = " + sampleResult.getResponseMessage() + "; URL = " + apiRequestURL);
         }
 
         return sampleResult;
